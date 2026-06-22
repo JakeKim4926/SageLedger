@@ -2,26 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Optional
-
-
-class MatchStatus(str, Enum):
-    NORMAL = "정상"
-    REVIEW_REQUIRED = "검토필요"
-    UNKNOWN_MEMBER = "회원미확인"
-    DUPLICATE = "중복의심"
-    SHORT_PAYMENT = "부족납부"
-    NO_MEMBER_FILE = "회원명단없음"
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
 class Member:
     name: str
-    monthly_due: int = 20_000
-    status: str = "취직"
+    monthly_due: int
     aliases: tuple[str, ...] = field(default_factory=tuple)
-    active: bool = True
 
     def match_names(self) -> set[str]:
         return {self.name, *self.aliases}
@@ -31,10 +19,10 @@ class Member:
 class KakaoTransaction:
     row_no: int
     traded_at: datetime
-    direction: str  # 입금 / 출금
-    amount: int     # 입금 양수, 출금 음수
+    direction: str       # 입금 / 출금
+    amount: int          # 입금 양수, 출금 음수
     balance: int
-    transaction_type: str
+    transaction_type: str  # 일반입금 / 예금이자 / 일반이체 ...
     description: str
     memo: str = ""
 
@@ -44,29 +32,39 @@ class KakaoTransaction:
 
     @property
     def expense(self) -> int:
-        return abs(self.amount) if self.amount < 0 else 0
+        return -self.amount if self.amount < 0 else 0
 
     @property
     def year_month_key(self) -> str:
         return f"{self.traded_at.year:04d}-{self.traded_at.month:02d}"
 
 
+@dataclass(frozen=True)
+class CellWrite:
+    """한 셀에 쓸 값. formula=True 면 value 를 수식으로 기록한다."""
+    sheet: str
+    row: int
+    col: int
+    value: Any
+    formula: bool = False
+
+
 @dataclass
-class MatchResult:
-    transaction: KakaoTransaction
-    extracted_name: str
-    member: Optional[Member]
-    status: MatchStatus
+class ReviewItem:
+    when: Optional[datetime]
+    name: str
+    amount: int
     reason: str
-    auto_confirmed: bool = False
 
 
 @dataclass
-class LedgerWriteResult:
-    written_personal_rows: int = 0
-    written_ledger_rows: int = 0
-    skipped_rows: int = 0
-    review_rows: int = 0
-    final_bank_balance: Optional[int] = None
-    final_ledger_balance: Optional[int] = None
-    validation_messages: list[str] = field(default_factory=list)
+class WritePlan:
+    cells: list[CellWrite] = field(default_factory=list)
+    reviews: list[ReviewItem] = field(default_factory=list)
+    personal_written: int = 0
+    transaction_written: int = 0
+    notes: list[str] = field(default_factory=list)
+    # 검증용: 입출금 내역의 마지막 데이터 행과 합계 열(계산은 xlwings 가 수행).
+    last_transaction_row: Optional[int] = None
+    balance_col: Optional[int] = None
+    bank_final_balance: Optional[int] = None

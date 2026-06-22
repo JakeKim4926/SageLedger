@@ -1,104 +1,91 @@
-# F.I.T 카카오뱅크 장부 자동화
+# SageLedger — 모임 회비 장부 자동화
 
-카카오뱅크 모임통장 거래내역 엑셀과 기존 F.I.T 장부 엑셀을 읽어서 개인 입금 내역과 입출금 내역을 자동 반영하는 로컬 프로그램입니다.
+카카오뱅크 모임통장 거래내역 엑셀을 읽어, 기존 모임 장부(개인 입금 내역 + 입출금 내역)에
+이번 달 입금/이자/지출을 자동 반영합니다. 여러 모임(FIT, SCM, …)을 모임 이름만으로 처리합니다.
 
-## 핵심 원칙
+## 동작 요약
 
-- 정확한 입금만 자동 반영합니다.
-- 기준 회비와 금액이 다른 입금은 기본적으로 `자동화_검토결과` 시트로 분리합니다.
-- 비밀번호는 코드에 저장하지 않습니다.
-- 장부 양식이 바뀌면 `config/sheet_mapping.yml`을 먼저 수정합니다.
+- **개인 입금 내역**: 카카오뱅크 `일반입금` 을 회원과 매칭해, 그 회원의 **첫 빈칸부터** 입금일/입금액을 채웁니다.
+  몰아서 낸 입금은 월 회비 단위로 **등분**하여 같은 입금일로 여러 칸에 채웁니다(예: 220,000원 → 2만원×11칸).
+- **입출금 내역**: 이번에 새로 채운 개인입금을 **입금월별 회비 정산 한 줄**로, 예금이자/출금(지출)을 각 행으로 추가합니다.
+- **중복 방지**: 같은 `날짜+금액` 이 이미 있으면 건너뜁니다. 같은 파일을 다시 실행해도 중복되지 않습니다.
+- **검토 분리**: 월 회비 배수가 아닌 입금, 미매칭 입금 등은 `자동화_검토결과` 시트로 분리합니다.
+- **저장**: xlwings(Excel)로 열고 저장하여 **수식 재계산 + 비밀번호 보존**을 모두 처리합니다.
+- **잔액 검증**: 카카오뱅크 최종 잔액과 장부 최종 잔액이 일치하는지 확인합니다.
 
-## 설치
+## 요구사항
+
+- Windows + **Microsoft Excel 설치** (xlwings 가 Excel 을 구동합니다)
+- Python 3.10+
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## 실행 예시
+## 설정 (한 번만)
+
+비밀번호와 회원 명단은 **git 에 올라가지 않는 로컬 파일**에만 둡니다.
+
+1. `.env` (비밀번호)
+
+   ```bash
+   cp .env.example .env   # 그리고 실제 비밀번호 입력
+   ```
+
+   ```
+   KAKAO_PASSWORD=...
+   FIT_LEDGER_READ_PW=...
+   FIT_LEDGER_WRITE_PW=...
+   SCM_LEDGER_READ_PW=...
+   SCM_LEDGER_WRITE_PW=...
+   ```
+
+2. `config/groups.yml` (모임/회원 명단)
+
+   ```bash
+   cp config/groups.example.yml config/groups.yml   # 그리고 실제 회원으로 수정
+   ```
+
+   - `dues`: status 별 월 회비 (취직 20000 / 미취직 10000)
+   - 회원별 `status` 를 `미취직` 으로 두면 그 회원만 1만원으로 계산됩니다.
+
+## 입력 파일
+
+장부와 카카오뱅크 거래내역을 모임별 입력 폴더에 둡니다(`config/groups.yml` 의 glob 패턴 기준).
+
+```
+input/fit/F.I.T_장부_*.xlsm
+input/fit/카카오뱅크_거래내역_*.xlsx
+input/scm/...
+```
+
+## 실행
 
 ```bash
-python app.py \
-  --kakao "input/카카오뱅크_거래내역.xlsx" \
-  --ledger "input/F.I.T_장부_Vol_3.2.xlsm" \
-  --members "config/members_template.csv" \
-  --output "output/FIT_장부_자동작성.xlsm"
+python app.py fit      # FIT 모임 처리
+python app.py scm      # SCM 모임 처리
 ```
 
-실행하면 카카오뱅크 파일 비밀번호와 장부 파일 비밀번호를 프롬프트에서 입력합니다.
-
-비밀번호를 인자로 넘길 수도 있습니다. 다만 쉘 히스토리에 남을 수 있으므로 개인 PC에서만 사용하세요.
-
-```bash
-python app.py \
-  --kakao "input/카카오뱅크_거래내역.xlsx" \
-  --kakao-password "<카카오_비번>" \
-  --ledger "input/F.I.T_장부_Vol_3.2.xlsm" \
-  --ledger-password "<장부_비번>" \
-  --members "config/members_template.csv" \
-  --output "output/FIT_장부_자동작성.xlsm"
-```
-
-## 검토필요 입금까지 반영하고 싶을 때
-
-기본값은 기준 회비와 금액이 다른 입금(예: 회비 배수가 아닌 금액)을 장부에 바로 쓰지 않습니다.
-
-검토필요 입금도 반영하려면 아래 옵션을 추가합니다.
-
-```bash
---auto-write-review
-```
-
-## 회원명단 파일
-
-`config/members_template.csv`를 수정해서 사용합니다.
-
-```csv
-name,monthly_due,status,aliases,active
-김준섭,20000,취직,준섭,true
-홍길동,10000,미취직,길동,true
-```
-
-- `name`: 장부에 있는 회원명
-- `monthly_due`: 월 회비
-- `aliases`: 카카오뱅크 입금자명 별칭. 여러 개면 쉼표 대신 세미콜론 권장
-- `active`: false면 자동 매칭에서 제외
-
-## 파일별 역할
-
-| 파일 | 역할 |
-|---|---|
-| `app.py` | CLI 실행 진입점 |
-| `fit_ledger_automation/decryptor.py` | 비밀번호 걸린 엑셀 복호화 |
-| `fit_ledger_automation/kakao_parser.py` | 카카오뱅크 거래내역 파싱 |
-| `fit_ledger_automation/member_loader.py` | 회원명단 로딩 |
-| `fit_ledger_automation/name_matcher.py` | 입금자명/회원 자동 매칭 |
-| `fit_ledger_automation/ledger_writer.py` | 기존 장부 시트 입력 |
-| `fit_ledger_automation/validator.py` | 잔액 검증 |
-| `fit_ledger_automation/report_writer.py` | 검토결과 시트 생성 |
-| `fit_ledger_automation/models.py` | 데이터 모델 |
-| `config/sheet_mapping.yml` | 장부 시트/열 위치 설정 |
-| `config/category_rules.yml` | 출금내역 자동 분류 규칙 |
-
-## 현재 장부 기준 매핑
-
-- 개인 입금 내역 시트
-  - 회원명: 15행
-  - 입금일/입금액: 16행
-  - 월 행 시작: 17행
-- 입출금 내역 시트
-  - 시작 행: 17행
-  - 일자: C열
-  - 구분: E열
-  - 내역: G열
-  - 세부 내역: K열
-  - 금액: S열
-  - 잔액: W열
+결과는 `output/<group>_장부_자동작성_<시각><확장자>` 로 저장됩니다(원본은 건드리지 않음).
 
 ## 주의
 
-- 매크로가 있는 `.xlsm`은 `openpyxl`의 `keep_vba=True`로 보존합니다. VBA 코드를 수정하지는 않습니다.
-- 엑셀 수식 재계산은 openpyxl이 직접 수행하지 않습니다. 수식 계산이 필요하면 결과 파일을 Excel로 열어 저장하거나, 2차 버전에서 `xlwings`를 붙이면 됩니다.
-- 같은 파일을 여러 번 실행하면 자동화 행이 중복될 수 있으므로, 생성된 결과 파일이 아니라 원본 템플릿을 기준으로 다시 실행하는 방식을 권장합니다.
+- **공개 저장소입니다.** 회원 실명·비밀번호·실제 엑셀 파일은 절대 커밋하지 마세요
+  (`.env`, `config/groups.yml`, `input/`, `output/`, `*.xlsx`, `*.xlsm` 은 `.gitignore` 처리됨).
+- 입출금 내역의 회비 정산은 **이번에 새로 채운 입금**만 합산합니다. 기존 수기 월별 정산과
+  방식이 다를 수 있으니, 잔액 불일치 경고가 뜨면 중복/누락을 확인하세요.
+
+## 구조
+
+| 파일 | 역할 |
+|---|---|
+| `app.py` | CLI 진입점 (`python app.py <group>`) |
+| `SageLedger/config.py` | `.env` + `groups.yml` 로딩, 모임 설정 해석 |
+| `SageLedger/decryptor.py` | 비밀번호 걸린 엑셀 복호화(읽기) |
+| `SageLedger/kakao_parser.py` | 카카오뱅크 거래내역 파싱 |
+| `SageLedger/name_matcher.py` | 입금자명 ↔ 회원 매칭 |
+| `SageLedger/planner.py` | 등분·빈칸순차·중복방지·회비정산 등 쓰기 계획 수립(openpyxl 읽기) |
+| `SageLedger/excel_writer.py` | xlwings 로 계획 적용·재계산·저장(비번 보존) |
+| `SageLedger/validator.py` | 잔액 검증 메시지 |
+| `config/sheet_mapping.yml` | 장부 시트/열 위치 |
+| `config/category_rules.yml` | 지출 자동 분류 규칙 |
