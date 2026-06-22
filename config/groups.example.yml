@@ -1,0 +1,19 @@
+# 모임/회원 설정 예시 템플릿.
+# 복사해서 config/groups.yml 를 만들고 실제 값으로 채우세요 (groups.yml 은 git 에 올라가지 않습니다).
+#   cp config/groups.example.yml config/groups.yml
+#
+# 회비: status 값으로 월 회비를 결정한다. 미취직 회원은 status 를 "미취직" 으로 둔다.
+dues:
+  취직: 20000
+  미취직: 10000
+
+groups:
+  example:
+    ledger_glob: "input/example/*장부*.xls*"
+    kakao_glob: "input/example/카카오뱅크_거래내역*.xlsx"
+    read_pw_env: EXAMPLE_LEDGER_READ_PW
+    write_pw_env: EXAMPLE_LEDGER_WRITE_PW
+    members:
+      - { name: 홍길동, status: 취직 }
+      - { name: 김철수, status: 취직 }
+      - { name: 이영희, status: 미취직 }

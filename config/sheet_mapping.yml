@@ -1,0 +1,20 @@
+# F.I.T_장부_Vol_3.2 기준 시트 매핑.
+# 장부 양식이 바뀌면 파이썬 코드가 아니라 이 파일을 먼저 수정하세요.
+
+personal_deposit_sheet:
+  name: "개인 입금 내역"
+  member_header_row: 15
+  month_col: 2
+  start_month_row: 17
+
+transaction_sheet:
+  name: "입출금 내역"
+  start_row: 17
+  columns:
+    seq: 2       # B열: 순번
+    date: 3      # C열: 일자
+    type: 5      # E열: 수입/지출
+    summary: 7   # G열: 내역
+    detail: 11   # K열: 세부 내역
+    amount: 19   # S열: 금액
+    balance: 23  # W열: 합계/잔액
