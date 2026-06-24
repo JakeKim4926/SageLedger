@@ -64,3 +64,39 @@ def load_group(
         kakao_pw=os.environ.get("KAKAO_PASSWORD") or None,
         members=members,
     )
+
+
+def list_groups(groups_path: str | Path = "config/groups.yml") -> list[str]:
+    """설정에 정의된 모임 이름 목록."""
+    data = load_yaml(groups_path)
+    return list((data.get("groups") or {}).keys())
+
+
+def load_pw(
+    group_name: str,
+    groups_path: str | Path = "config/groups.yml",
+    env_path: str | Path = ".env",
+) -> tuple[Optional[str], Optional[str]]:
+    """모임의 (읽기, 쓰기) 비밀번호를 env 에서 읽는다 (입력 파일 불필요)."""
+    if Path(env_path).exists():
+        load_dotenv(env_path)
+    data = load_yaml(groups_path)
+    g = (data.get("groups") or {}).get(group_name)
+    if not g:
+        raise KeyError(f"'{group_name}' 모임이 {groups_path} 에 없습니다.")
+    return (
+        os.environ.get(g["read_pw_env"]) or None,
+        os.environ.get(g["write_pw_env"]) or None,
+    )
+
+
+def load_room(group_name: str, groups_path: str | Path = "config/groups.yml") -> str:
+    """모임의 카카오톡 단톡방 이름을 읽는다 (전송 전용, 입력 파일 없이도 동작)."""
+    data = load_yaml(groups_path)
+    groups = data.get("groups") or {}
+    if group_name not in groups:
+        raise KeyError(f"'{group_name}' 모임이 {groups_path} 에 없습니다. 사용 가능: {list(groups)}")
+    room = (groups[group_name] or {}).get("kakao_room")
+    if not room:
+        raise KeyError(f"'{group_name}' 에 kakao_room 이 설정되지 않았습니다 ({groups_path}).")
+    return str(room).strip()
