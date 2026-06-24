@@ -9,7 +9,14 @@ dependencies = [
     "PyYAML>=6.0.1",
     "python-dotenv>=1.0.0",
     "xlwings>=0.30.0",
+    "pywinauto>=0.6.9",
+    "pywin32>=312",
 ]
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "pillow>=12.2.0",
+]
