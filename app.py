@@ -23,22 +23,28 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main() -> None:
-    args = build_parser().parse_args()
-
-    group = load_group(args.group, groups_path=args.groups, env_path=args.env)
-    mapping = load_yaml(args.mapping)
-    category_rules = load_yaml(args.category_rules)
+def generate_ledger(
+    group_name: str,
+    groups_path: str = "config/groups.yml",
+    env_path: str = ".env",
+    mapping_path: str = "config/sheet_mapping.yml",
+    category_rules_path: str = "config/category_rules.yml",
+    output: str | None = None,
+) -> dict:
+    """장부를 자동 작성해 output 파일을 만들고 결과(dict) 를 돌려준다."""
+    group = load_group(group_name, groups_path=groups_path, env_path=env_path)
+    mapping = load_yaml(mapping_path)
+    category_rules = load_yaml(category_rules_path)
 
     transactions = parse_kakaobank_transactions(group.kakao_path, password=group.kakao_pw)
 
     plan = build_plan(group, transactions, mapping, category_rules)
 
-    if args.output:
-        output_path = Path(args.output)
+    if output:
+        output_path = Path(output)
     else:
         stamp = datetime.now().strftime("%Y%m%d_%H%M")
-        output_path = Path("output") / f"{args.group}_장부_자동작성_{stamp}{group.ledger_path.suffix}"
+        output_path = Path("output") / f"{group_name}_장부_자동작성_{stamp}{group.ledger_path.suffix}"
 
     result = apply_plan(group, plan, output_path)
 
@@ -54,6 +60,19 @@ def main() -> None:
         print(f"- 참고: {note}")
     print(f"- {msg}")
     print(f"- 저장 위치: {result['output']}")
+    return result
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    generate_ledger(
+        args.group,
+        groups_path=args.groups,
+        env_path=args.env,
+        mapping_path=args.mapping,
+        category_rules_path=args.category_rules,
+        output=args.output,
+    )
 
 
 if __name__ == "__main__":
