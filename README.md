@@ -12,6 +12,22 @@
 - **잔액 맞춤 확인** — 카카오뱅크 잔액과 장부 잔액이 일치하는지 자동으로 검사합니다.
 - **애매한 항목은 따로 모음** — 사람이 한 번 봐야 할 입금은 `검토결과` 시트로 빼 줍니다.
 
+## 처음 설치 (새 컴퓨터에서)
+
+> 사전 준비: Windows, [uv](https://docs.astral.sh/uv/), MS Excel, PC 카카오톡(실행+로그인)
+
+```bash
+git clone <이-repo-주소>
+cd SageLedger
+
+uv sync                                  # 파이썬 + 의존성 설치
+
+cp config/groups.example.yml config/groups.yml   # 모임/회원/단톡방 설정 채우기
+cp .env.example .env                             # 엑셀 비밀번호 채우기
+```
+
+`config/groups.yml`, `.env`, `input/` 의 장부·거래내역 엑셀은 개인정보라 git 에 올라가지 않습니다. 다른 컴퓨터로 옮길 때는 직접(안전한 경로로) 복사하세요.
+
 ## 어떻게 쓰나요
 
 1. 카카오뱅크 거래내역과 모임 장부 파일을 `input/<모임>/` 폴더에 넣습니다. (예: `input/scm/`)
