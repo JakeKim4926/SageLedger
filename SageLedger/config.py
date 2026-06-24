@@ -64,3 +64,15 @@ def load_group(
         kakao_pw=os.environ.get("KAKAO_PASSWORD") or None,
         members=members,
     )
+
+
+def load_room(group_name: str, groups_path: str | Path = "config/groups.yml") -> str:
+    """모임의 카카오톡 단톡방 이름을 읽는다 (전송 전용, 입력 파일 없이도 동작)."""
+    data = load_yaml(groups_path)
+    groups = data.get("groups") or {}
+    if group_name not in groups:
+        raise KeyError(f"'{group_name}' 모임이 {groups_path} 에 없습니다. 사용 가능: {list(groups)}")
+    room = (groups[group_name] or {}).get("kakao_room")
+    if not room:
+        raise KeyError(f"'{group_name}' 에 kakao_room 이 설정되지 않았습니다 ({groups_path}).")
+    return str(room).strip()
