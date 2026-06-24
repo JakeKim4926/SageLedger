@@ -13,8 +13,6 @@ groups:
     kakao_glob: "input/example/카카오뱅크_거래내역*.xlsx"
     read_pw_env: EXAMPLE_LEDGER_READ_PW
     write_pw_env: EXAMPLE_LEDGER_WRITE_PW
-    # kakao_send.py 로 장부를 보낼 카카오톡 단톡방 이름 (PC 카카오톡의 방 제목과 정확히 일치해야 함)
-    kakao_room: "단톡방이름"
     members:
       - { name: 홍길동, status: 취직 }
       - { name: 김철수, status: 취직 }
