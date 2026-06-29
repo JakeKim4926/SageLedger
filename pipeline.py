@@ -62,8 +62,8 @@ def main() -> None:
         args.group, room, result["output"], not args.no_capture, args.groups
     )
 
-    print(f"\n카카오톡 전송 완료: {args.group} -> '{room}'")
-    print(f"- 카톡 전송 소요시간: {elapsed:.1f}초")
+    print(f"\n✅ {args.group.upper()} 장부 전송 완료 "
+          f"(잔액 {result['ledger_balance']:,}원) · {elapsed:.1f}초")
 
 
 if __name__ == "__main__":
