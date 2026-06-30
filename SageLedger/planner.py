@@ -150,6 +150,7 @@ def _plan_personal(wb, mapping, deposits_by_member, due_by_member,
 
         existing: set[tuple] = set()
         empty_rows: list[int] = []
+        last_filled: Optional[int] = None
         for r in range(start_row, boundary):
             dval = ws.cell(r, date_col).value
             aval = ws.cell(r, amt_col).value
@@ -157,6 +158,12 @@ def _plan_personal(wb, mapping, deposits_by_member, due_by_member,
                 empty_rows.append(r)
             else:
                 existing.add((_as_date(dval), _numeric(aval)))
+                last_filled = r
+
+        # 합류 전/중간의 앞쪽 빈 행은 건너뛰고, 마지막 기입 행 다음부터 채운다.
+        # (기입 이력이 없는 신규 회원은 시작행부터 그대로 사용.)
+        if last_filled is not None:
+            empty_rows = [r for r in empty_rows if r > last_filled]
 
         # 입금액을 월회비 단위로 등분. 배수가 아니면 검토.
         chunks: list[tuple[date, int]] = []
