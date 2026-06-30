@@ -91,10 +91,23 @@ def build_plan(
     # 회비정산용: 실제로 새로 기입한 개인입금을 입금월별로 집계.
     monthly_written: dict[str, list] = {}  # ym -> [amount_sum, max_date]
 
+    memo_incomes: list[tuple[str, KakaoTransaction]] = []
     _plan_personal(wb, mapping, deposits_by_member, due_by_member,
-                   monthly_written, plan)
+                   monthly_written, plan, memo_incomes)
+
+    # 메모 'X' 로 표시된 비회비 입금: 세부내역을 입력받아 기타 수입으로 기록.
+    extra_incomes: list[tuple] = []  # (date, "수입", "기타", detail, amount)
+    for member_name, tx in memo_incomes:
+        print(f"\n[기타 수입] {member_name} {tx.amount:,}원 (메모 X) - 회비 아닌 입금.")
+        detail = input("  세부내역 입력 (빈칸=검토로 남김): ").strip()
+        if detail:
+            extra_incomes.append((tx.traded_at.date(), "수입", "기타", detail, tx.amount))
+        else:
+            plan.reviews.append(ReviewItem(tx.traded_at, member_name, tx.amount,
+                                "회비 아닌 입금 (세부내역 미입력)"))
+
     _plan_transactions(wb, mapping, transactions, category_rules,
-                       monthly_written, plan)
+                       monthly_written, plan, extra_incomes)
 
     plan.bank_final_balance = transactions[-1].balance if transactions else None
     wb.close()
@@ -102,7 +115,7 @@ def build_plan(
 
 
 def _plan_personal(wb, mapping, deposits_by_member, due_by_member,
-                   monthly_written, plan: WritePlan) -> None:
+                   monthly_written, plan: WritePlan, memo_incomes: list) -> None:
     cfg = mapping["personal_deposit_sheet"]
     name = cfg["name"]
     ws = wb[name]
@@ -149,8 +162,11 @@ def _plan_personal(wb, mapping, deposits_by_member, due_by_member,
         chunks: list[tuple[date, int]] = []
         for tx in sorted(txs, key=lambda t: t.traded_at):
             if tx.amount % due != 0:
-                plan.reviews.append(ReviewItem(tx.traded_at, member_name, tx.amount,
-                                    f"월회비 {due:,}원의 배수가 아님 (등분 불가)"))
+                if str(tx.memo).strip().upper() == "X":
+                    memo_incomes.append((member_name, tx))
+                else:
+                    plan.reviews.append(ReviewItem(tx.traded_at, member_name, tx.amount,
+                                        f"월회비 {due:,}원의 배수가 아님 (등분 불가)"))
                 continue
             for _ in range(tx.amount // due):
                 chunks.append((tx.traded_at.date(), due))
@@ -179,7 +195,7 @@ def _plan_personal(wb, mapping, deposits_by_member, due_by_member,
 
 
 def _plan_transactions(wb, mapping, transactions, category_rules,
-                       monthly_written, plan: WritePlan) -> None:
+                       monthly_written, plan: WritePlan, extra_incomes: list) -> None:
     cfg = mapping["transaction_sheet"]
     name = cfg["name"]
     ws = wb[name]
@@ -229,6 +245,11 @@ def _plan_transactions(wb, mapping, transactions, category_rules,
                 detail = f"자동화 {tx.description}" if tx.description else \
                          f"자동화 출금 {tx.traded_at:%Y-%m-%d}"
                 new_entries.append((tx.traded_at.date(), "지출", summary, detail, tx.expense))
+
+    # 4) 기타 수입 (메모 'X' 로 표시된 비회비 입금)
+    for d, kind, summary, detail, amount in extra_incomes:
+        if (d, kind, summary, amount) not in existing:
+            new_entries.append((d, kind, summary, detail, amount))
 
     new_entries.sort(key=lambda e: e[0])
 
