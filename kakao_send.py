@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 from SageLedger import kakao_sender
@@ -58,15 +57,6 @@ def latest_excel_for(group: str) -> Path | None:
     return max(files, key=lambda p: p.stat().st_mtime, default=None)
 
 
-def header_message(group: str) -> str:
-    """단톡방에 먼저 보낼 안내 문구."""
-    return (
-        f"SageLedger - {group.upper()} 장부 작성 및 전송, "
-        f"개인 입금 내역 캡처 및 전송 완료\n"
-        f"{datetime.now():%Y-%m-%d %H:%M:%S}"
-    )
-
-
 def elapsed_message(seconds: float) -> str:
     """마지막에 보낼 카카오톡 전송 소요시간 문구."""
     if seconds >= 60:
@@ -84,7 +74,7 @@ def send_group(
     capture: bool,
     groups_path: str,
 ) -> float:
-    """한 모임의 단톡방으로 헤더 → (캡처 이미지) → 엑셀 → 소요시간 순으로 보낸다.
+    """한 모임의 단톡방으로 (캡처 이미지) → 엑셀 → 소요시간 순으로 보낸다.
 
     캡처(Excel)는 카카오 포커스 다툼을 피하려 전송 시작 전에 끝낸다.
     돌려주는 값은 카카오톡 전송에 걸린 시간(초).
@@ -96,7 +86,6 @@ def send_group(
 
     start = time.time()
     room_hwnd = kakao_sender.open_room(room)
-    kakao_sender.send_text(room_hwnd, header_message(group))
     if image is not None:
         kakao_sender.send_file(room_hwnd, image)
     kakao_sender.send_file(room_hwnd, file_path)
