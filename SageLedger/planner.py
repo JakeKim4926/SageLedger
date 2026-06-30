@@ -12,7 +12,7 @@ from openpyxl.utils import get_column_letter
 
 from .config import GroupConfig
 from .decryptor import ensure_readable_excel
-from .models import CellWrite, KakaoTransaction, ReviewItem, WritePlan
+from .models import CellWrite, KakaoTransaction, MergeRange, ReviewItem, WritePlan
 from .name_matcher import match_member_deposits
 
 _OPS = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
@@ -264,6 +264,15 @@ def _plan_transactions(wb, mapping, transactions, category_rules,
     sl = get_column_letter(cols["amount"])
     wl = get_column_letter(cols["balance"])
 
+    # 필드별 병합 범위: 각 시작열 ~ (다음 필드 시작열-1), 마지막(합계)은 last_col 까지.
+    # seq(B) 는 단일 칸이라 병합 대상에서 제외한다.
+    last_col = int(cfg.get("last_col", cols["balance"]))
+    merge_starts = sorted(c for k, c in cols.items() if k != "seq")
+    merge_ranges = [
+        (s, (merge_starts[i + 1] - 1) if i + 1 < len(merge_starts) else last_col)
+        for i, s in enumerate(merge_starts)
+    ]
+
     row = last
     seq = int(prev_seq) if isinstance(prev_seq, (int, float)) else last - start
     for d, kind, summary, detail, amount in new_entries:
@@ -279,6 +288,8 @@ def _plan_transactions(wb, mapping, transactions, category_rules,
         plan.cells.append(CellWrite(name, row, cols["balance"],
                           f'=IF({el}{row}="수입",{wl}{row-1}+{sl}{row},{wl}{row-1}-{sl}{row})',
                           formula=True))
+        for c0, c1 in merge_ranges:
+            plan.merges.append(MergeRange(name, row, c0, c1))
         plan.transaction_written += 1
 
     last_new_row = row

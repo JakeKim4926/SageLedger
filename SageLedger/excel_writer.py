@@ -37,6 +37,14 @@ def apply_plan(group: GroupConfig, plan: WritePlan, output_path: str | Path) -> 
             update_links=False,
         )
 
+        # 새 행은 기존 행과 같은 셀 병합을 입힌다. 이미 병합돼 있으면 건너뛴다
+        # (값을 좌상단 셀에 쓰기 전에 병합해야 한다).
+        for mg in plan.merges:
+            rng = book.sheets[mg.sheet].range((mg.row, mg.col_start),
+                                              (mg.row, mg.col_end))
+            if rng.api.MergeCells is not True:
+                rng.merge()
+
         for cw in plan.cells:
             cell = book.sheets[cw.sheet].range((cw.row, cw.col))
             if cw.formula:

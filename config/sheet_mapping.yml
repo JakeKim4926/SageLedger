@@ -10,6 +10,7 @@ personal_deposit_sheet:
 transaction_sheet:
   name: "입출금 내역"
   start_row: 17
+  last_col: 27   # AA열: 합계 병합 끝열 (새 행 병합 범위 도출용)
   columns:
     seq: 2       # B열: 순번
     date: 3      # C열: 일자

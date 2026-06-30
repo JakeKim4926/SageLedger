@@ -49,6 +49,15 @@ class CellWrite:
     formula: bool = False
 
 
+@dataclass(frozen=True)
+class MergeRange:
+    """입출금 새 행에 적용할 셀 병합 범위 (한 행의 col_start..col_end)."""
+    sheet: str
+    row: int
+    col_start: int
+    col_end: int
+
+
 @dataclass
 class ReviewItem:
     when: Optional[datetime]
@@ -60,6 +69,7 @@ class ReviewItem:
 @dataclass
 class WritePlan:
     cells: list[CellWrite] = field(default_factory=list)
+    merges: list[MergeRange] = field(default_factory=list)
     reviews: list[ReviewItem] = field(default_factory=list)
     personal_written: int = 0
     transaction_written: int = 0
