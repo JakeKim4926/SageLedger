@@ -6,9 +6,11 @@ import time
 from ctypes import wintypes
 from pathlib import Path
 
+import win32api
 import win32clipboard
 import win32con
 import win32gui
+import win32process
 from pywinauto.keyboard import send_keys
 
 MAIN_CLASS = "EVA_Window_Dblclk"
@@ -79,11 +81,29 @@ def _main_hwnd() -> int:
 def _focus(hwnd: int) -> None:
     if win32gui.IsIconic(hwnd):
         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-    try:
-        win32gui.SetForegroundWindow(hwnd)
-    except Exception:
-        # 이미 포그라운드면 에러(183) 가 날 수 있는데 무시해도 된다.
-        pass
+    fg = win32gui.GetForegroundWindow()
+    if fg != hwnd:
+        # 다른 프로세스(예: 직전 캡처용 Excel)가 포그라운드면 그 스레드 입력 큐에
+        # 붙어야 foreground lock 에 막히지 않고 활성화할 수 있다.
+        cur = win32api.GetCurrentThreadId()
+        other = win32process.GetWindowThreadProcessId(fg)[0] if fg else 0
+        attached = bool(other) and other != cur
+        if attached:
+            win32process.AttachThreadInput(cur, other, True)
+        try:
+            win32gui.SetForegroundWindow(hwnd)
+        except Exception:
+            # 이미 포그라운드면 에러(183) 가 날 수 있는데 무시해도 된다.
+            pass
+        finally:
+            if attached:
+                win32process.AttachThreadInput(cur, other, False)
+    # 그래도 포그라운드가 안 되면(foreground lock 거부 = 작업표시줄 깜빡임),
+    # 최소화→복원으로 강제 활성화한다. 최소화 창 복원은 OS 가 항상 허용한다.
+    if win32gui.GetForegroundWindow() != hwnd:
+        win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        time.sleep(0.3)
     time.sleep(0.4)
 
 
